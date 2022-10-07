@@ -8,7 +8,7 @@ Handles asynchronous loading of content for those that must support iOS 14.
 ## Usage
 
 
-```
+```swift
 struct CatView: View {
     
     @StateObject private var model = CatModel()

@@ -1,111 +1,58 @@
 # AsyncView
 
-AsyncView is a SwiftUI View for handling in-progress and error states when loading data asynchronously using async/await. It's like [AsyncImage](https://developer.apple.com/documentation/swiftui/asyncimage) but for data.
+[![](https://img.shields.io/badge/Swift%20Compatibility-5.5%20|%205.6%20|%205.7-red?logo=swift)](https://www.swift.org/about/)
+[![](https://img.shields.io/badge/Platform%20Compatibility-iOS%20|%20macOS%20|%20tvOS%20|%20watchOS-red?logo=swift)](https://developer.apple.com)
 
-![Countries example](https://cdn.ralfebert.de/asyncview_states-3aba8003.png)
+Handles asynchronous loading of content for those that must support iOS 14.
 
-## Howto
+## Usage
 
-### Endpoints
 
-I recommend to define a type for every API and implement a method for every endpoint/remote call. For example, to load a [JSON list of countries](https://www.ralfebert.de/examples/v3/countries.json):
-
-```swift
-struct Country: Identifiable, Codable {
-    var id: String
-    var name: String
-}
-
-class CountriesEndpoints {
-    let urlSession = URLSession.shared
-    let jsonDecoder = JSONDecoder()
+```
+struct CatView: View {
     
-    static let shared = CountriesEndpoints()
-
-    func countries() async throws -> [Country] {
-        let url = URL(string: "https://www.ralfebert.de/examples/v3/countries.json")!
-        let (data, _) = try await urlSession.data(from: url)
-        return try self.jsonDecoder.decode([Country].self, from: data)
-    }
-}
-```
-
-Have a look at [MetMuseumEndpoints](https://github.com/ralfebert/MetMuseumEndpoints/blob/main/Sources/MetMuseumEndpoints/MetMuseumEndpoints.swift#L303) for a more realistic API.
-
-### Loading data for SwiftUI views asynchronously
-
-For presenting data loaded from a URL endpoint directly in a SwiftUI View, you can use `AsyncView`:
-
-```swift
-import SwiftUI
-import AsyncView
-
-struct CountriesView: View {
+    @StateObject private var model = CatModel()
+    
     var body: some View {
-        AsyncView(
-            operation: { try await CountriesEndpoints.shared.countries() },
-            content: { countries in
-                List(countries) { country in
-                    Text(country.name)
-                }
-            }
-        )
-    }
-}
-```
-
-It is also possible to extract the loading operation as a model instance using `AsyncModel` and use `AsyncModelView`:
-
-```swift
-import SwiftUI
-import AsyncView
-
-struct CountriesView: View {
-    @StateObject var countriesModel = AsyncModel { try await CountriesEndpoints.shared.countries() }
-
-    var body: some View {
-        AsyncModelView(model: countriesModel) { countries in
-            List(countries) { country in
-                Text(country.name)
+        AsyncView(model: model) {
+            ProgressView()
+        } errorView: { error in
+            ErrorView(error: error)
+        } contentView: { data in
+            Image(uiImage: UIImage(data: data)!)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        }
+        .onAppear {
+            Task {
+                await model.load()
             }
         }
     }
 }
-```
 
-For more complex models, you can also define the model as a separate class:
-
-```swift
-class CountriesModel: AsyncModel<[Country]> {
-    override func asyncOperation() async throws -> [Country] {
-        try await CountriesEndpoints.shared.countries()
-    }
-}
-
-struct CountriesView: View {
-    @StateObject var countriesModel = CountriesModel()
-
-    var body: some View {
-        AsyncModelView(model: countriesModel) { countries in
-            List(countries) { country in
-                Text(country.name)
-            }
+final class CatModel: AsyncModel, ObservableObject {
+    
+    @Published var result: AsyncResult<Data> = .empty
+    
+    var asyncOperationBlock: AsyncOperation {
+        return { [unowned self] in
+            try await Task.sleep(nanoseconds: NSEC_PER_SEC * 1) // simulate loading
+            return try Data(contentsOf: file)
         }
     }
+    
+    private var file: URL {
+        Bundle.main.url(forResource: "Cat", withExtension: "png")!
+    }
+}
+
+struct ErrorView: View {
+    
+    var error: Error
+    
+    var body: some View {
+        Text(error.localizedDescription)
+    }
 }
 ```
-
-
-## Example projects
-
-[Countries - Branch swiftui3-factbook-asyncview](https://github.com/ralfebert/Countries/tree/swiftui3-factbook-asyncview) shows a list of countries.
-
-[MuseumGuide](https://github.com/ralfebert/MuseumGuide) loads a random artwork from the Met Museum API:
-
-![MuseumGuide example](https://github.com/ralfebert/MuseumGuide/raw/main/docs/museum-example-xcode.jpg)
-
-
-## Documentation
-
-See my blog post "[Structuring asynchronous loading operations in SwiftUI](https://www.ralfebert.com/ios-app-development/swiftui/asyncview/)" for a walk-through tutorial on how to build this package which serves as an in-depth explanation of this package.
-

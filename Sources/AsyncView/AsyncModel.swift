@@ -1,41 +1,33 @@
 import SwiftUI
 
-open class AsyncModel<Success>: ObservableObject {
-    @MainActor @Published public private(set) var result = AsyncResult<Success>.empty
+@MainActor
+public protocol AsyncModel: ObservableObject {
+    associatedtype Output
+    typealias AsyncOperation = () async throws -> Output
+    var asyncOperationBlock: AsyncOperation { get }
+    var result: AsyncResult<Output> { get set }
+}
 
-    public typealias AsyncOperation = () async throws -> Success
-
-    private var asyncOperationBlock: AsyncOperation = {
-        fatalError("Override asyncOperation or pass a asyncOperationBlock to use async model")
-    }
-
-    public init(asyncOperation: AsyncOperation? = nil) {
-        if let asyncOperation = asyncOperation {
-            self.asyncOperationBlock = asyncOperation
+public extension AsyncModel {
+    
+    func load() async {
+        if case .inProgress = result {
+            return
         }
-    }
-
-    open func asyncOperation() async throws -> Success {
-        try await self.asyncOperationBlock()
-    }
-
-    @MainActor
-    public func load() async {
-        if case .inProgress = self.result { return }
-        self.result = .inProgress
+        result = .inProgress
 
         do {
-            self.result = .success(try await self.asyncOperation())
+            result = .success(try await asyncOperationBlock())
         } catch {
-            self.result = .failure(error)
+            result = .failure(error)
         }
     }
 
-    @MainActor
-    public func loadIfNeeded() async {
-        switch self.result {
+    // No need for this when .task(id: becomes available on SwiftUI views.
+    func loadIfNeeded() async {
+        switch result {
         case .empty, .failure:
-            await self.load()
+            await load()
         case .inProgress, .success:
             break
         }

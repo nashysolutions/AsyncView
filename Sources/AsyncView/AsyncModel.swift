@@ -1,11 +1,18 @@
 import SwiftUI
+import Cache
 
 @MainActor
 public protocol AsyncModel: ObservableObject {
-    associatedtype Output
-    typealias AsyncOperation = () async throws -> Output
+    associatedtype Output: Identifiable
+    typealias AsyncOperation = (Cache<Output>) async throws -> Output
     var asyncOperationBlock: AsyncOperation { get }
     var result: AsyncResult<Output> { get set }
+    var cache: Cache<Output> { get }
+    var cacheExpiry: Expiry { get }
+}
+
+public extension AsyncModel {
+    var cacheExpiry: Expiry { .short }
 }
 
 public extension AsyncModel {
@@ -17,7 +24,9 @@ public extension AsyncModel {
         result = .inProgress
 
         do {
-            result = .success(try await asyncOperationBlock())
+            let output = try await asyncOperationBlock(cache)
+            cache.stash(output, duration: cacheExpiry)
+            result = .success(output)
         } catch {
             result = .failure(error)
         }

@@ -1,0 +1,16 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Cache",
+        "repositoryURL": "https://github.com/nashysolutions/Cache.git",
+        "state": {
+          "branch": null,
+          "revision": "e0613eccf3300533859bd47d2a9fdd2a4ed2e75a",
+          "version": "3.0.0"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

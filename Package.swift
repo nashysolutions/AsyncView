@@ -11,11 +11,11 @@ let package = Package(
             targets: ["AsyncView"]
         ),
     ],
-    dependencies: [],
+    dependencies: [.package(url: "https://github.com/nashysolutions/Cache.git", .upToNextMinor(from: "3.0.0"))],
     targets: [
         .target(
             name: "AsyncView",
-            dependencies: []
+            dependencies: ["Cache"]
         ),
     ]
 )
